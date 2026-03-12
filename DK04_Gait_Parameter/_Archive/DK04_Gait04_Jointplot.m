@@ -1,0 +1,157 @@
+%% This code creates Bland-Altman plots to compare gait parameters between Vicon and predicted data
+% created by Alexander on 26.06.2023
+
+% Description:
+% This script processes gait data to create Bland-Altman plots for comparing
+% gait parameters obtained from Vicon (ground truth) with predicted data.
+% The steps include:
+% 1. Adding necessary functions to the path.
+% 2. Defining the test path and data group.
+% 3. Identifying folders containing the required data.
+% 4. Loading the data and extracting relevant gait parameters.
+% 5. Creating Bland-Altman plots for each participant and gait parameter.
+% 6. Saving the plots to a specified directory.
+
+clc;close all;clear all;
+
+%% Define the path and group to analyze
+addpath(genpath('Functions'));
+TestPath1 = '/Users/yonkim/DataForWork/DeepKinematics/Models_trained';
+
+% Data Group
+ifgroup = 0;
+
+switch ifgroup
+    case 0
+        Group = 'Fk_Full_ATT';
+    case 1
+        Group = 'PartlyGeneral';
+end
+
+
+%% Loop through all the participants and load the data
+baseDirectory = [TestPath1,filesep,Group];
+matchingFolders = findFoldersEndingWithString(baseDirectory, '-acc_gyro');
+errorLog = [];
+results_for_excel =[];
+
+%% Load the Data
+walks = {'Norm_Post'};%, 'Norm_Post', 'White', 'Pink'};
+marker_params = {'Head', 'Left_Shoulder', 'Right_Shoulder','LHJC', 'RHJC', 'LKJC', 'RKJC', 'LAJC', 'RAJC','LTO3','RTO3'};
+marker_params_plot = {'Head', 'LSHO', 'RSHO','LHJC', 'RHJC', 'LKJC', 'RKJC', 'LAJC', 'RAJC','LTO3','RTO3'};
+
+nPoints = 100;
+nAxes = 3; % X, Y, Z
+axes_labels = {'X-axis', 'Y-axis', 'Z-axis'};
+
+%% Loop trough walks and gait parameters
+for folders_name =  1:length(matchingFolders)
+
+    folder_in = dir(matchingFolders{folders_name});
+    folder_in(strncmp({folder_in.name}, '.', 1)) = [];
+
+    TestPath2 = [matchingFolders{folders_name},filesep,'Results',filesep];
+    mat_files = dir([TestPath2, filesep '*.mat']);
+    load(fullfile([mat_files.folder,filesep,mat_files.name]));
+
+    destPath = [TestPath2,filesep,'Figures',filesep,'Joint_rot'];
+
+    % Ensure TestPath2 exists, create if it doesn't
+    if ~exist(destPath, 'dir')
+        mkdir(destPath);
+    end
+
+    subjectNames = fieldnames(GaitSummary);
+    try
+        for sub_indx = 1:length(subjectNames)
+            part = subjectNames{sub_indx};
+
+            for walk = 1:length(walks)
+
+                GT_event_LHS = GaitSummary.(part).(strcat(walks{walk},'_root_rec_gt')).GaitEvents.HSleftlocs; % Ground Truth (Vicon)
+                GT_event_RHS = GaitSummary.(part).(strcat(walks{walk},'_root_rec_gt')).GaitEvents.HSrightlocs; % Ground Truth (Vicon)
+                GT_event_LTO = GaitSummary.(part).(strcat(walks{walk},'_root_rec_gt')).GaitEvents.TOleftlocs; % Ground Truth (Vicon)
+                GT_event_RTO = GaitSummary.(part).(strcat(walks{walk},'_root_rec_gt')).GaitEvents.TOrightlocs; % Ground Truth (Vicon)
+
+                Predict_event_LHS = GaitSummary.(part).(strcat(walks{walk},'_root_rec_hat')).GaitEvents.HSleftlocs; % Ground Truth (Vicon)
+                Predict_event_RHS = GaitSummary.(part).(strcat(walks{walk},'_root_rec_hat')).GaitEvents.HSrightlocs; % Ground Truth (Vicon)
+                Predict_event_LTO = GaitSummary.(part).(strcat(walks{walk},'_root_rec_hat')).GaitEvents.TOleftlocs; % Ground Truth (Vicon)
+                Predict_event_RTO = GaitSummary.(part).(strcat(walks{walk},'_root_rec_hat')).GaitEvents.TOrightlocs; % Ground Truth (Vicon)
+               
+                % Create figure
+                fig = figure('Units', 'normalized', 'OuterPosition', [0 0 1 1]);
+                tiledlayout(length(marker_params), nAxes, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+                for param_idx = 1:length(marker_params)
+
+                    param = marker_params{param_idx};
+                    param_plot =marker_params_plot{param_idx};
+
+                    % Define Data
+                    GT_joint_rot = GaitSummary.(part).(strcat(walks{walk},'_joint_rot_gt')).Joint.(param); % Ground Truth (Vicon)
+                    predict_joint_rot = GaitSummary.(part).(strcat(walks{walk},'_joint_rot_hat')).Joint.(param); % Prediction without any added Root
+
+                    % --- Ground Truth: Normalise all cycles ---
+                    GT_cycles = [];
+                    for i = 1:(length(GT_event_LHS)-1)
+                        cycle = double(GT_joint_rot(GT_event_LHS(i):GT_event_LHS(i+1), :));
+                        cycle_resampled = resample(cycle, nPoints, size(cycle, 1));
+                        GT_cycles(:,i) = cycle_resampled; % average across dimensions if necessary
+                    end
+
+                    % --- Prediction with root: Normalise all cycles ---
+                    predict_cycles = [];
+                    for i = 1:(length(Predict_event_LHS)-1)
+                        cycle = double(predict_joint_rot(Predict_event_LHS(i):Predict_event_LHS(i+1), :));
+                        cycle_resampled = resample(cycle, nPoints, size(cycle, 1));
+                        predict_cycles(:,i) = cycle_resampled;
+                    end
+
+                    x = linspace(0, 100, nPoints);
+
+                    for axis = 1:nAxes
+                        nexttile;
+
+                        hold on;
+
+                        spm1d.plot.plot_meanSD(GT_cycles(:,axis),'color', [0, 0, 0.6]);
+                        spm1d.plot.plot_meanSD(predict_cycles(:,axis),'color', [1,0.4,0.3]);
+
+                        if param_idx == 1
+                            title(axes_labels{axis});
+                        end
+
+                        if axis == 1
+                            ylabel(param_plot, 'Interpreter', 'none');
+                        end
+
+                        if param_idx == length(marker_params)
+                            xlabel('Gait Cycle (%)');
+                        end
+
+                        grid on;
+                        hold off;
+                    end
+                end
+
+                % Add one shared legend
+                lgd = legend({'GT Mean','GT Std','Pred Mean','Pred Std'}, 'Location', 'southoutside', 'Orientation', 'horizontal');
+                lgd.Layout.Tile = 'south';
+
+                % Save figure
+                sanitized_title_temp = regexprep([part '_' walks{walk} '_all_markers'], '[:*\?<>|]', '_');
+
+                fig = gcf;  % get current figure
+                set(fig, 'Units', 'normalized', 'OuterPosition', [0 0 1 1]);  % full screen
+
+                filename = fullfile(destPath, [sanitized_title_temp, '_trajectory.png']);
+                exportgraphics(fig, filename, 'Resolution', 300);  % high quality
+
+                close(fig);
+            end
+        end
+    catch ME
+        disp(['Pipeline failed  ', [part,'_', walks{walk}]]);
+        continue
+    end
+end

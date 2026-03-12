@@ -1,0 +1,28 @@
+Vicon Keypoints are imported in the following order:
+
+Head, left shoulder, left elbow, left wrist, right shoulder, right elbow, right wrist, 
+left hip joint, right hip joint, left knee joint, right knee joint, left ankle joint, right ankle joint, left toe, right toe
+
+labels = ['Head_CtoHThorax_score', 'LThorax_LUpArm_score', 'LUpArm_LLoArm_score', 
+'LWRA', 'RThorax_RUpArm_score', 'RUpArm_RLoArm_score',
+'RWRA', 'LHJC', 'RHJC', 'LKJC', 'RKJC', 'LAJC', 'RAJC', 'LTO3', 'RTO3']
+
+For Data_conversion.py the order is:
+
+labels = ['Head_CtoHThorax_score', 'LThorax_LUpArm_score', 'RThorax_RUpArm_score',
+'LUpArm_LLoArm_score', 'RUpArm_RLoArm_score', 'LWRA', 'RWRA', 
+'LHJC', 'RHJC', 'LKJC', 'RKJC', 'LAJC', 'RAJC', 'LTO3', 'RTO3', 'LHEE', 'RHEE']	
+
+Contact phase:
+first toe contact phase, then heel contact phase
+
+Vicon Orientations are imported in the following order:
+
+left ankle, right ankle, left wrist, right wrist, head, pelvis
+
+labels_orientation = ['LTIO', 'LTIA', 'LTIL', 'LTIP', 'RTIO', 'RTIA', 'RTIL', 'RTIP', 'LLoArmO', 'LLoArmA', 'LLoArmL', 'LLoArmP', 
+'RLoArmO', 'RLoArmA', 'RLoArmL', 'RLoArmP', 'HeadO', 'HeadA', 'HeadL', 'HeadP', 'PELO', 'PELA', 'PELL', 'PELP']
+
+IMU Orientations are imported in the following order
+
+left foot, right foot, left wrist, right wrist, head, trunk
