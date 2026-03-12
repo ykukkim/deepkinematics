@@ -275,4 +275,4 @@ Parameter to change:
 - Change evaluation strategy in train.py to not rely on single window of 500 frames (current approach) but on entire unseen sequence or for the easy and hard test set on the entire trial.
 
 # Contact
-If questions arise regarding the code you can contact me under alexander.haefliger@gmail.com# deepkinematics
+If questions arise regarding the code you can contact me under ykuk0906@gmail.com deepkinematics
