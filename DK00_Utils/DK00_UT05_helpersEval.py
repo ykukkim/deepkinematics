@@ -1,3 +1,5 @@
+"""Model-loading, evaluation-data, windowing, and result-export helpers."""
+
 import os
 import glob
 import torch
@@ -6,7 +8,7 @@ import pandas as pd
 import scipy.io as sio
 
 from torch.utils.data import DataLoader
-from torchvision.transforms import transforms
+from torchvision import transforms
 
 from DK00_Utils.DK00_UT00_config import CONSTANTS as C
 from DK00_Utils.DK00_UT00_config import Configuration

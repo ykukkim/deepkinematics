@@ -1,3 +1,5 @@
+"""Reusable neural-network layers for the DeepKinematics models."""
+
 import torch
 from math import sqrt
 from torch import nn as nn
@@ -432,11 +434,13 @@ class GraphConvolution(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        """Initialise graph weights without mutating autograd-tracked ``.data``."""
         stdv = 1. / sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
-        self.att.data.uniform_(-stdv, stdv)
-        if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
+        with torch.no_grad():
+            self.weight.uniform_(-stdv, stdv)
+            self.att.uniform_(-stdv, stdv)
+            if self.bias is not None:
+                self.bias.uniform_(-stdv, stdv)
 
     def forward(self, input):
         support = torch.matmul(input, self.weight)

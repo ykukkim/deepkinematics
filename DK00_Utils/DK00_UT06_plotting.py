@@ -1,3 +1,5 @@
+"""Diagnostic plots for pose and Euler-angle reconstruction outputs."""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R

@@ -1,3 +1,5 @@
+"""Render BVH skeleton motion together with corresponding IMU orientations."""
+
 import numpy as np
 
 from aitviewer.renderables.skeletons import Skeletons

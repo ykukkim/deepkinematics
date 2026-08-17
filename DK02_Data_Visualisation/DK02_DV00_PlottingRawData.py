@@ -1,3 +1,5 @@
+"""Inspect synchronised raw IMU, OMC, contact, and joint-position signals."""
+
 import numpy as np
 import matplotlib
 matplotlib.use('TkAgg')  # Or 'Qt5Agg'

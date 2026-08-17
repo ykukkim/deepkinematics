@@ -1,3 +1,5 @@
+"""Batch-level reconstruction metrics and Excel summary export."""
+
 import os
 import cv2
 import torch
@@ -178,8 +180,8 @@ class MetricsEngine(object):
         metric_map = {
             'mpjpe': ('Euclidean_Distance',  self.eucl_eval_joints),
             'mpjae': ('Joint_Rotation_Distance', self.eucl_eval_joints),
-            'rel_joints': ('Relative_joint_angle', self.phase_joints),
-            'rel_phase': ('Relative_Phase_angle', self.phase_joints),
+            # 'rel_joints': ('Relative_joint_angle', self.phase_joints),
+            # 'rel_phase': ('Relative_Phase_angle', self.phase_joints),
         }
 
         for key, (sheet_name, labels) in metric_map.items():

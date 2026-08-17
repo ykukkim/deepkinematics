@@ -1,3 +1,5 @@
+"""Loss functions for positions, rotations, phases, and adaptive multitask weighting."""
+
 import torch
 import torch.nn as nn
 import numpy as np

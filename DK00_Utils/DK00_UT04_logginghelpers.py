@@ -1,3 +1,5 @@
+"""Experiment logging, checkpointing, evaluation, and source-archive helpers."""
+
 import os
 import glob
 import torch
@@ -342,6 +344,7 @@ def final_evaluation_and_log(dataset_name, loader, model, vrn, preprocess_fn, me
         wandb_run.log_to_wandb(final_metrics, dataset_name)
         wandb_run.log_to_wandb(final_losses, dataset_name, 'loss')
 
+    return final_metrics
 "Only for JC"
 def get_lines(joints):
     """ Lines to represent stickfigure in AIT viewer, Lines: mode='lines' """
@@ -379,4 +382,3 @@ def get_lines(joints):
                                  ), axis=1)
 
     return stick_figure
-

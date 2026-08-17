@@ -1,84 +1,129 @@
-"""Basic configuration Settings for visualization and training parameters"""
+"""Shared configuration for training, evaluation, and visualisation.
+
+Filesystem locations default to this project checkout and can be overridden with
+the ``DEEPKINEMATICS_*`` environment variables documented in ``README.md``.
+Keeping paths here avoids embedding a particular workstation or cluster account
+in the analysis code.
+"""
 import os
 import ast
 import json
 import torch
 import pprint
 import argparse
-import socket
-from sys import platform
+from pathlib import Path
+from sklearn.model_selection import KFold
 
-try:
-    ip_address = socket.gethostbyname(socket.gethostname())
-except socket.gaierror:
-    ip_address = None  # Handle cases where the IP address cannot be resolved
 
-if platform == "linux" or platform == "linux2":
+def _configured_path(variable, default):
+    """Return a normalised path from an environment override or a default."""
+    return str(Path(os.environ.get(variable, default)).expanduser().resolve())
 
-    dir_path = f'/cluster/project/hilliges/yonkim/TrainingData/'
-    save_dir_path = f'/cluster/project/hilliges/yonkim/Models_trained'
-    save_dir_path_Final = f'/cluster/project/hilliges/yonkim/Models_trained'
-    save_wandb_path = f'/cluster/project/hilliges/yonkim/wandb'
-    save_sweep_path = f'/cluster/project/hilliges/yonkim/'
-    UNSEEN_MOTION_CSV = f'/cluster/home/yonkim/dl_humanmotion/DK00_Utils/test_set_unseen.csv'
 
-    if ip_address == "192.168.10.141" and not None:
+CODE_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(os.environ.get(
+    "DEEPKINEMATICS_ROOT", CODE_ROOT.parents[1]
+)).expanduser().resolve()
 
-        dir_path = f'/1TB/DataForWork/DeepKinematics/Training Data'
-        save_dir_path = f'/1TB/DataForWork/DeepKinematics/Models_trained'
-        save_dir_path_Final = f'/1TB/DataForWork/DeepKinematics/Models_trained/Final'
-        save_wandb_path = f'/1TB/DataForWork/DeepKinematics/wandb'
-        save_sweep_path = f'/1TB/DataForWork/DeepKinematics'
-        UNSEEN_MOTION_CSV = f'/home/yong/Desktop/dl_humanmotion/DK00_Utils/test_set_unseen.csv'
-
-elif platform == "win32":
-    dir_path = f'D:/04_DeepKinematics/Training Data/'
-    save_dir_path = f'D:/04_DeepKinematics/Models_trained'
-    save_dir_path_Final = f'D:/04_DeepKinematics/Models_trained/Final'
-    save_wandb_path = f'D:/04_DeepKinematics/wandb'
-    save_sweep_path = f'D:/04_DeepKinematics/'
-    UNSEEN_MOTION_CSV = f'C:/Users/ykuk0/Desktop/dl_humanmotion/DK00_Utils/test_set_unseen.csv'
-
-elif platform == "darwin":
-    dir_path = f'/Users/ykk/DataForWork/DeepKinematics/Training Data'
-    save_dir_path = f'/Users/ykk/DataForWork/DeepKinematics/Manuscript'
-    save_dir_path_Final = f'/Users/ykk/DataForWork/DeepKinematics/Manuscript/Final'
-    save_wandb_path = f'/Users/ykk/DataForWork/DeepKinematics/wandb'
-    save_sweep_path = f'/Users/ykk/DataForWork/DeepKinematics'
-    UNSEEN_MOTION_CSV = f'/Users/ykk/Library/Mobile Documents/com~apple~CloudDocs/00_Others/01_ETH/01_PhD/04_Publications/00_UnderReview/09_IMU_DeepKinematics/dl_humanmotion-main/test_set_unseen.csv'
+dir_path = _configured_path(
+    "DEEPKINEMATICS_DATA_DIR", PROJECT_ROOT / "00_Data" / "Data"
+)
+save_dir_path = _configured_path(
+    "DEEPKINEMATICS_MODEL_DIR", PROJECT_ROOT / "00_Results"
+)
+save_dir_path_Final = _configured_path(
+    "DEEPKINEMATICS_FINAL_MODEL_DIR", PROJECT_ROOT / "00_Data" / "Models"
+)
+save_wandb_path = _configured_path(
+    "DEEPKINEMATICS_WANDB_DIR", PROJECT_ROOT / "00_Results" / "wandb"
+)
+save_sweep_path = _configured_path(
+    "DEEPKINEMATICS_SWEEP_DIR", PROJECT_ROOT / "00_Results" / "sweeps"
+)
+UNSEEN_MOTION_CSV = _configured_path(
+    "DEEPKINEMATICS_UNSEEN_MOTION_CSV", CODE_ROOT / "DK00_Utils" / "test_set_unseen.csv"
+)
 
 SAMPLING_FACTOR = 4
 SAMPLING_FREQUENCY = 50
 
 FILE_LIST = ['Norm_Pre', 'Norm_Post', 'White', 'Pink', 'FTSS_Pre', 'FTSS_Post', 'TUG_Pre', 'TUG_Post']
 
-"Data allocation for training"
+# Data allocation for training.
 
-""" Training set """
-subjects_train = ['01', '02', '03', '06', '07', '10',
-'11', '12', '13', '15', '16', '17', '18', '19', '20',
-'32', '33', '34', '35', '36','40',
-'41', '42', '43', '44', '45', '46','47','48','49','50',
-'53','59',
-'63','64','65', '66','67','69','70',
-'73','74','76','78','79',
-'83','85','86','87']
 
-""" Validation set: easy """
-# Young
-subjects_easy = ['21','22','23','25','26','27','28','29','30']
+def get_subject_groups():
+    young = [f"{i:02d}" for i in range(1, 51)]
+    older = [f"{i:02d}" for i in range(51, 88)]
 
-""" Validation set: hard """
-# Older
-subjects_hard = ['75','77','62','72','82']
+    # Remove excluded subjects
+    excluded = {'04', '05', '09', '14', '24', '31', '38', '39', '51', '52', '54', '55', '56', '57', '58', '60', '67', '68', '80', '84'}
+    young = [s for s in young if s not in excluded]
+    older = [s for s in older if s not in excluded]
 
-subjects_test = ['04','09','14','24','31','51','54','56','67','80']
+    return young, older
 
-# For quick test
-subjects_train = ['75']
-subjects_easy = ['24']
-subjects_hard = ['82']
-subjects_test = ['04']
+def filter_by_age(subjects, mode):
+    young, older = get_subject_groups()
+
+    if mode == 'easy':
+        return [s for s in subjects if s in young]
+    elif mode == 'hard':
+        return [s for s in subjects if s in older]
+    else:
+        return subjects
+
+
+def create_stratified_folds(n_splits=5, seed=42):
+    young, older = get_subject_groups()
+
+    kf_y = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    kf_o = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
+
+    young_folds = list(kf_y.split(young))
+    older_folds = list(kf_o.split(older))
+
+    folds = []
+
+    for (y_tr, y_val), (o_tr, o_val) in zip(young_folds, older_folds):
+        train_subjects = [young[i] for i in y_tr] + [older[i] for i in o_tr]
+        val_subjects = [young[i] for i in y_val] + [older[i] for i in o_val]
+
+        folds.append((train_subjects, val_subjects))
+
+    return folds
+
+
+# """ Training set """
+# subjects_train = ['01', '02', '03', '06', '07', '10',
+#                   '11', '12', '13', '15', '16', '17', '18', '19', '20',
+#                   '32', '33', '34', '35', '36', '40',
+#                   '41', '42', '43', '44', '45', '46', '47', '48', '49', '50',
+#                   '53', '59',
+#                   '63', '64', '65', '66', '67', '69', '70',
+#                   '73', '74', '76', '78', '79',
+#                   '83', '85', '86', '87']
+#
+# """ Validation set: easy """
+# # Young
+# subjects_easy = ['21', '22', '23', '25', '26', '27', '28', '29', '30']
+#
+# """ Validation set: hard """
+# # Older
+# subjects_hard = ['75', '77', '62', '72', '82']
+#
+# subjects_test = ['04', '09', '14', '24', '31', '51', '54', '56', '67', '80']
+
+# # For quick test
+# subjects_train = ['75']
+# subjects_easy = ['24']
+# subjects_hard = ['82']
+# subjects_test = ['04']
+
+# Subject loop used by legacy conversion and visualisation entry points.
+# Creating the range
+subject = [num for num in range(1, 88) if num not in [5, 38, 39, 52, 55, 57, 58, 60, 68, 84]]
+trials = [FILE_LIST[i] for i in [0, 1, 2, 3]]
 
 LEFT_FOOT_MOVEMENT_CORRECTION = ['03', '04', '06', '07', '09', '11', '12', '13', '14', '15', '16',
                                  '17', '19', '21', '22', '23', '24', '25', '26', '28', '30', '31',
@@ -86,19 +131,16 @@ LEFT_FOOT_MOVEMENT_CORRECTION = ['03', '04', '06', '07', '09', '11', '12', '13',
                                  '56', '61', '63', '64', '65', '67', '69', '70', '71', '72', '73',
                                  '75', '80', '81']
 
-"GPU Settings"
+# Prefer CUDA, then Apple Metal, while retaining a CPU fallback.
 
 if torch.cuda.is_available():
     DEVICE = torch.device("cuda:0")
+elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    DEVICE = torch.device("mps")
 else:
-    DEVICE = torch.device("cpu")  # Use CPU if neither CUDA nor M1 GPU is available
+    DEVICE = torch.device("cpu")
 
 DTYPE = torch.float32
-
-"Subject Loop"
-# Creating the range
-subject = [num for num in range(1, 88) if num not in [5, 38, 39, 52, 55, 57, 58, 60, 68, 84]]
-trials = [FILE_LIST[i] for i in [0, 1, 2, 3]]
 
 "VICON Labels"
 marker_labels = ['RTO1', 'RTO3', 'RTO5', 'RHEE', 'RMMA', 'RLMA', 'RTMT', 'RTLF',
@@ -122,17 +164,17 @@ VICON_LABELS_SEGMENT_ORIENTATION = ['LTIO', 'LTIA', 'LTIL', 'LTIP', 'RTIO', 'RTI
 """JOINT CENTRE -- Parameters """
 
 JC_LABELS_Full = ['Head', 'Left Shoulder', 'Right Shoulder',
-                         'Left Elbow', 'Right Elbow', 'Left Wrist',
-                         'Right Wrist', 'Left Hip', 'Right Hip', 'Left Knee', 'Right Knee', 'Left Ankle',
-                         'Right Ankle', 'Left Toe', 'Right Toe']
+                  'Left Elbow', 'Right Elbow', 'Left Wrist',
+                  'Right Wrist', 'Left Hip', 'Right Hip', 'Left Knee', 'Right Knee', 'Left Ankle',
+                  'Right Ankle', 'Left Toe', 'Right Toe']
 
 JC_LABELS_NoArms = ['Head', 'Left Shoulder', 'Right Shoulder',
                     'Left Hip', 'Right Hip', 'Left Knee', 'Right Knee', 'Left Ankle', 'Right Ankle',
                     'Left Toe',
                     'Right Toe']
 
-JC_LABELS_NoArmsHead = ['Left Hip', 'Right Hip', 'Left Knee', 'Right Knee', 'Left Ankle', 'Right Ankle', 'Left Toe','Right Toe']
-
+JC_LABELS_NoArmsHead = ['Left Hip', 'Right Hip', 'Left Knee', 'Right Knee', 'Left Ankle', 'Right Ankle', 'Left Toe',
+                        'Right Toe']
 
 JC_EVAL_JOINTS_Full = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]  # Full body
 
@@ -153,10 +195,10 @@ FK_JOINTS_NoArms = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Spine3', 'Neck', 'Neck
                     'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'LeftToeBase_end0']
 
 FK_JOINTS_NoArmsHead = ['Hips',
-                    'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase', 'RightToeBase_end0',
-                    'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'LeftToeBase_end0']
+                        'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase', 'RightToeBase_end0',
+                        'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'LeftToeBase_end0']
 
-FK_FOOT_JOINTS = ['RightFoot', 'RightToeBase', 'RightToeBase_end0','LeftFoot', 'LeftToeBase','LeftToeBase_end0']
+FK_FOOT_JOINTS = ['RightFoot', 'RightToeBase', 'RightToeBase_end0', 'LeftFoot', 'LeftToeBase', 'LeftToeBase_end0']
 FK_Main_JOINTS = FK_FOOT_JOINTS
 
 FK_PARENTS_Full = [-1, 0, 1, 2, 3, 4, 5, 6, 7,  # Upper trunk to head
@@ -170,9 +212,9 @@ FK_PARENTS_NoArms = [-1, 0, 1, 2, 3, 4, 5, 6, 7,  # Upper trunk to head
                      0, 21, 22, 23, 24,  # Right leg
                      0, 26, 27, 28, 29]  # Left Leg
 
-FK_PARENTS_NoArmsHead = [-1, 0, # Upper trunk to head
-                     0, 21, 22, 23, 24,  # Right leg
-                     0, 26, 27, 28, 29]  # Left Leg
+FK_PARENTS_NoArmsHead = [-1, 0,  # Upper trunk to head
+                         0, 21, 22, 23, 24,  # Right leg
+                         0, 26, 27, 28, 29]  # Left Leg
 
 FK_EVAL_JOINTS_FUll = [0, 1, 2, 3, 4, 5, 6, 7, 8,  # Upper trunk to head
                        9, 10, 11, 12, 13, 14,  # Right Shoulder
@@ -186,8 +228,8 @@ FK_EVAL_JOINTS_NoArms = [0, 1, 2, 3, 4, 5, 6, 7, 8,
                          26, 27, 28, 29, 30]  # Left leg
 
 FK_EVAL_JOINTS_NoArmsHead = [0,
-                         21, 22, 23, 24, 25,  # Right leg
-                         26, 27, 28, 29, 30]  # Left leg
+                             21, 22, 23, 24, 25,  # Right leg
+                             26, 27, 28, 29, 30]  # Left leg
 
 FK_SKELETON_Full = [
     [(-1, 0, 'Hips')],
@@ -219,15 +261,15 @@ FK_SKELETON_NoArms = [[(-1, 0, 'Hips')],
                       [(4, 9, 'RightShoulder'), (4, 15, 'LeftShoulder')]]
 
 FK_SKELETON_NoArmsHead = [[(-1, 0, 'Hips')],
-                      [(0, 21, 'RightUpLeg'), (0, 26, 'LeftUpLeg')],
-                      [(21, 22, 'RightLeg'), (26, 27, 'LeftLeg')],
-                      [(22, 23, 'RightFoot'), (27, 28, 'LeftFoot')],
-                      [(23, 24, 'RightToeBase'), (28, 29, 'LeftToeBase')],
-                      [(24, 25, 'RightToeBase_end0'), (29, 30, 'LeftToeBase_end0')]]
+                          [(0, 21, 'RightUpLeg'), (0, 26, 'LeftUpLeg')],
+                          [(21, 22, 'RightLeg'), (26, 27, 'LeftLeg')],
+                          [(22, 23, 'RightFoot'), (27, 28, 'LeftFoot')],
+                          [(23, 24, 'RightToeBase'), (28, 29, 'LeftToeBase')],
+                          [(24, 25, 'RightToeBase_end0'), (29, 30, 'LeftToeBase_end0')]]
 
 skeleton_pairs = [
-    (0, 21),   # Hips -> RightUpLeg
-    (0, 26),   # Hips -> LeftUpLeg
+    (0, 21),  # Hips -> RightUpLeg
+    (0, 26),  # Hips -> LeftUpLeg
     (21, 22),  # RightUpLeg -> RightLeg
     (22, 23),  # RightLeg -> RightFoot
     (23, 24),  # RightFoot -> RightToeBase
@@ -236,9 +278,9 @@ skeleton_pairs = [
     (27, 28),  # LeftLeg -> LeftFoot
     (28, 29),  # LeftFoot -> LeftToeBase
     (29, 30),  # LeftToeBase -> LeftToeBase_end0
-    (4, 9),    # Neck -> RightShoulder
-    (4, 15),   # Neck -> LeftShoulder
-    (9, 10),   # RightShoulder -> RightArm
+    (4, 9),  # Neck -> RightShoulder
+    (4, 15),  # Neck -> LeftShoulder
+    (9, 10),  # RightShoulder -> RightArm
     (15, 16),  # LeftShoulder -> LeftArm
     (10, 11),  # RightArm -> RightForeArm
     (16, 17),  # LeftArm -> LeftForeArm
@@ -273,6 +315,7 @@ JOINT_EULER_CONVENTIONS = {
     'LeftToeBase': 'xyz',
 }
 
+
 class Constants(object):
     """
     A singleton for some common constants.
@@ -288,9 +331,10 @@ class Constants(object):
             self.save_model_DIR_Final = save_dir_path_Final
             self.save_wandb_DIR = save_wandb_path
             self.save_sweep_DIR = save_sweep_path
-            self.subjects_train = subjects_train
-            self.subjects_easy = subjects_easy
-            self.subjects_hard = subjects_hard
+            # self.subjects_train = subjects_train
+            # self.subjects_easy = subjects_easy
+            # self.subjects_hard = subjects_hard
+
             self.UNSEEN_MOTION_CSV = UNSEEN_MOTION_CSV
 
             # Factor to divide sampling frequency by and downsample sequences
@@ -333,6 +377,7 @@ class Constants(object):
             self.FK_skeleton_NoArmsHead = FK_SKELETON_NoArmsHead
 
             self.JOINT_EULER_CONVENTIONS = JOINT_EULER_CONVENTIONS
+
     instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -373,23 +418,26 @@ class Configuration(object):
             raise argparse.ArgumentTypeError("Inputs must be a valid list of lists of integers")
 
     @staticmethod
-    def parse_cmd(version=str, m_type=str, experimentid=str, m_positional_encoding_type = str, optimizer=str, scheduler=str):
+    def parse_cmd(version=str, m_type=str, experimentid=str, m_positional_encoding_type=str, optimizer=str,
+                  scheduler=str):
 
         parser = argparse.ArgumentParser()
 
         # Dataset & Learning Configuration
         parser.add_argument('--VERSION', type=str, default=version, help='JC or FK?')
-        parser.add_argument('--experimentid', type=str, default=experimentid, help='Use this experiment ID or create new one.')
+        parser.add_argument('--experimentid', type=str, default=experimentid,
+                            help='Use this experiment ID or create new one.')
         parser.add_argument('--eval_every', type=int, default=5, help='Evaluate validation set every so many epochs.')
         parser.add_argument('--n_epochs', type=int, default=50, help='Number of epochs.')
-        parser.add_argument('--optimizer', type=str, default=optimizer, help= 'Type of Optimizer.')
-        parser.add_argument('--scheduler', type=str, default=scheduler, help= 'Type of scheduler.')
+        parser.add_argument('--optimizer', type=str, default=optimizer, help='Type of Optimizer.')
+        parser.add_argument('--scheduler', type=str, default=scheduler, help='Type of scheduler.')
         parser.add_argument('--m_type', type=str, default=m_type, help='The type of model.')
         parser.add_argument('--lr', nargs='+', type=float, default=[1e-3], help='Learning rate.')
         parser.add_argument('--weight_decay', nargs='+', type=float, default=[1e-1], help='Weight Decay.')
         parser.add_argument('--n_offset', type=int, default=10, help='Number of frames for offset calculation.')
         parser.add_argument('--window_size', type=int, default=500, help='Number of frames to extract per sequence.')
-        parser.add_argument('--eval_window_size', type=int, default=None, help='Window size for evaluation on test set.')
+        parser.add_argument('--eval_window_size', type=int, default=None,
+                            help='Window size for evaluation on test set.')
         parser.add_argument('--bs_train', type=int, default=128, help='Batch size for the training set.')
         parser.add_argument('--bs_eval', type=int, default=64, help='Batch size for valid/test set.')
         parser.add_argument('--load', action='store_true', help='Whether to load the model with the given ID.')
@@ -407,23 +455,31 @@ class Configuration(object):
         parser.add_argument('--predict_joints', action='store_true', help='Do phase prediction.')
         parser.add_argument('--predict_phase', action='store_true', help='Do phase prediction.')
         parser.add_argument('--predict_orientation', action='store_true', help='Do orientation prediction.')
-        parser.add_argument('--predict_root', action='store_true', help='Predict root trajectory.')# TO DO FOR JC AND FK
+        parser.add_argument('--predict_root', action='store_true',
+                            help='Predict root trajectory.')  # TO DO FOR JC AND FK
         parser.add_argument('--predict_spl', action='store_true', help='Do contact prediction.')
 
         # Loss
+        parser.add_argument('--use_adaptive_loss', action='store_true', help='Adaptive or manual?.')
         parser.add_argument('--m_pose_loss', nargs='+', type=float, default=[1], help='pose loss.')
-        parser.add_argument('--m_contact_loss', nargs='+', type=float, default=[1], help='Weighted foot prediction loss.')
-        parser.add_argument('--m_velocity_loss', nargs='+', type=float, default=[1], help='Weighted foot prediction loss.')
-        parser.add_argument('--m_orientation_loss', nargs='+', type=float, default=[1], help='Weighted Orientation prediction loss.')
+        parser.add_argument('--m_contact_loss', nargs='+', type=float, default=[1],
+                            help='Weighted foot prediction loss.')
+        parser.add_argument('--m_velocity_loss', nargs='+', type=float, default=[1],
+                            help='Weighted foot prediction loss.')
+        parser.add_argument('--m_orientation_loss', nargs='+', type=float, default=[1],
+                            help='Weighted Orientation prediction loss.')
         parser.add_argument('--m_foot_loss', nargs='+', type=float, default=[1], help='Weighted foot prediction loss.')
-        parser.add_argument('--m_root_loss', nargs='+',type=float, default=[1], help="Root prediction loss.")
+        parser.add_argument('--m_root_loss', nargs='+', type=float, default=[1], help="Root prediction loss.")
+        parser.add_argument('--use_cross_validation', action='store_true', help='CV OR NOT.')
+        parser.add_argument('--cv_folds', type=int, default=5)
 
         args, unknown = parser.parse_known_args()
 
         if args.VERSION == 'JC':
             # JC INPUT SPECIFIC
             parser.add_argument('--normalize_height', action='store_false', help='Normalize the height of subjects.')
-            parser.add_argument('--normalize_joint_pos', action='store_false', help='Fix midpoint between hip joints to origin.')
+            parser.add_argument('--normalize_joint_pos', action='store_false',
+                                help='Fix midpoint between hip joints to origin.')
 
         if args.VERSION == 'FK':
             parser.add_argument('--m_joint_rot_loss', nargs='+', type=float, default=[1], help='Joint Rotation loss.')
@@ -431,7 +487,8 @@ class Configuration(object):
             parser.add_argument('--m_phase_loss', nargs='+', type=float, default=[1], help='Phase loss.')
 
             # FK INPUT SPECIFIC
-            parser.add_argument('--global_joint_rot', action='store_false', help='Use global joint rotation for offset calc.')
+            parser.add_argument('--global_joint_rot', action='store_false',
+                                help='Use global joint rotation for offset calc.')
             parser.add_argument('--add_gait_vel', action='store_true', help='Add gait velocity to position deltas.')
 
         # Model Configuration
@@ -442,7 +499,7 @@ class Configuration(object):
         parser.add_argument('--use_batch_norm', action='store_true', help='Batch Normalisation.')
         parser.add_argument('--m_hidden_units_SPL', type=Configuration.parse_units, default=[[64]])
 
-        if 'rnn' in args.m_type :
+        if 'rnn' in args.m_type:
             parser.add_argument('--m_num_layers_RNN', nargs='+', type=int, default=[2])
             parser.add_argument('--m_hidden_units_RNN', type=Configuration.parse_units, default=[[64], [256, 512]])
 
@@ -459,7 +516,7 @@ class Configuration(object):
 
         elif 'att' in args.m_type or 'diff' in args.m_type:
 
-            parser.add_argument('--num_diffusion_steps', nargs='+',type=int, default=[1000])
+            parser.add_argument('--num_diffusion_steps', nargs='+', type=int, default=[1000])
             parser.add_argument('--beta_schedule', type=str, default='linear', choices=['linear', 'cosine'])
 
             # MLP
@@ -495,7 +552,7 @@ class Configuration(object):
             'm_dropout', 'weight_decay', 'lr',
             'm_pose_loss', 'm_joint_rot_loss',
             'm_velocity_loss', 'm_contact_loss',
-            'm_joints_loss','m_phase_loss',
+            'm_joints_loss', 'm_phase_loss',
             'm_root_loss', 'm_foot_loss',
         }
 
@@ -525,7 +582,7 @@ class Configuration(object):
                 'm_hidden_units_SPL'
             },
             'diff': base_keys | {
-                'm_embedding_MLP','num_diffusion_steps',
+                'm_embedding_MLP', 'num_diffusion_steps',
                 'm_num_layers_attention', 'm_num_hidden_units_attention',
                 'm_num_heads_attention', 'm_embedding_attention', 'm_window_attention',
                 'm_hidden_units_SPL'
@@ -582,7 +639,8 @@ class Configuration(object):
 
     def to_json(self, json_path):
         with open(json_path, 'w') as f:
-            s = json.dumps(vars(self), indent=2, sort_keys=True)
+            s = json.dumps(vars(self),indent=2, sort_keys=True)
             f.write(s)
+
 
 CONSTANTS = Constants()

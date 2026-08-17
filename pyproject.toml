@@ -1,0 +1,17 @@
+[project]
+name = "deepkinematics-analysis"
+version = "0.1.0"
+description = "Six-IMU full-body reconstruction and gait-validation analysis"
+requires-python = ">=3.10,<3.13"
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["DK03_Training/Archive", "**/__pycache__"]
+
+[tool.ruff.lint]
+# Start with correctness checks that are safe for a research codebase. Broader
+# formatting/style rules can be enabled incrementally without obscuring results.
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

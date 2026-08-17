@@ -1,3 +1,5 @@
+"""Detect heel-strike and toe-off phases for joint-centre data conversion."""
+
 import math
 import matplotlib.pyplot as plt
 import numpy as np

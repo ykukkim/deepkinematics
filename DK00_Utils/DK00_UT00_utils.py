@@ -1,3 +1,5 @@
+"""General numerical, reproducibility, and geometry helpers."""
+
 import re
 import torch
 import random
@@ -6,17 +8,23 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 from DK00_Utils.DK00_UT00_config import CONSTANTS as C
 
-#####################
 def set_random_seed(seed=0, deterministic=False):
+    """Seed Python, NumPy, and PyTorch for repeatable experiments.
+
+    ``warn_only=True`` keeps deterministic mode usable when a model contains a
+    PyTorch operation without a deterministic implementation on the selected
+    accelerator; PyTorch emits a warning instead of aborting the training run.
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.benchmark = not deterministic
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.benchmark = not deterministic
+        torch.backends.cudnn.deterministic = deterministic
 
     if deterministic:
-        torch.backends.cudnn.deterministic = True
+        torch.use_deterministic_algorithms(True, warn_only=True)
 
 def clean_string(s):
     """
@@ -39,7 +47,7 @@ def load_vicon_data(path):
     return data_jc, data_ori #, ori_IMU
 
 def load_IMU_quat_and_transform_to_rot_matrix(path):
-    """" Transform quaternions to rotation matrices. """
+    """Transform stored ``(w, x, y, z)`` quaternions to rotation matrices."""
     data = np.load(path)
     quat_data = data['quat']
     quat_data = quat_data[:,:,[1,2,3,0]] # adjust order of quaternions to scipy module (x,y,z,w)
@@ -181,4 +189,3 @@ def compute_relative_angle_for_skeleton(rotations, convention='xyz', in_degrees=
     relative_euler_angles = np.stack(relative_euler_angles, axis=1)
 
     return relative_euler_angles
-

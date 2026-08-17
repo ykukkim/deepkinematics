@@ -1,3 +1,5 @@
+"""DeepKinematics model architectures and the configuration-based model factory."""
+
 import roma
 import math
 import torch
@@ -110,6 +112,7 @@ class BaseModel(nn.Module):
             self.n_sensors = 3
 
         # Loss
+        self.use_adaptive_loss = getattr(config, 'use_adaptive_loss', None)
         self.pose_loss_w = getattr(config, 'm_pose_loss', None)
         self.contact_loss_w = getattr(config, 'm_contact_loss', None)
         self.orientation_loss_w = getattr(config, 'm_orientation_loss', None)
@@ -245,28 +248,32 @@ class BaseModel(nn.Module):
 
     def model_name(self):
         base_name = ''
-        base_name += '-pol{}'.format(self.pose_loss_w)  # pose loss
 
-        if self.VERSION == 'JC':
-            base_name = ''
-            base_name += '-rl{}'.format(self.root_loss_w)  # root loss
-        elif self.VERSION == 'FK':
-            """A summary string of this model."""
-            base_name += '-jrotl{}'.format(self.joint_rot_loss_w)
-            base_name += '-fl{}'.format(self.foot_loss_w)
+        if self.use_adaptive_loss:
+            base_name += '-adaptive'
+        elif self.use_adaptive_loss is False:
+            base_name += '-pol{}'.format(self.pose_loss_w)  # pose loss
 
-        if self.predict_contact:
-            base_name += '-cl{}'.format(self.contact_loss_w)  # contact loss
-        if self.predict_velocity:
-            base_name += '-vel{}'.format(self.velocity_loss_w) # relative phases loss
-        if self.predict_joints:
-            base_name += '-jphl{}'.format(self.joints_loss_w)  # relative phases loss
-        if self.predict_phase:
-            base_name += '-phl{}'.format(self.phase_loss_w) # relative phases loss
-        if self.predict_orientation:
-            base_name += '-oril{}'.format(self.orientation_loss_w)  # orientation
-        if self.predict_root:
-            base_name += '-rl{}'.format(self.root_loss_w)
+            if self.VERSION == 'JC':
+                base_name = ''
+                base_name += '-rl{}'.format(self.root_loss_w)  # root loss
+            elif self.VERSION == 'FK':
+                """A summary string of this model."""
+                base_name += '-jrotl{}'.format(self.joint_rot_loss_w)
+                base_name += '-fl{}'.format(self.foot_loss_w)
+
+            if self.predict_contact:
+                base_name += '-cl{}'.format(self.contact_loss_w)  # contact loss
+            if self.predict_velocity:
+                base_name += '-vel{}'.format(self.velocity_loss_w) # relative phases loss
+            if self.predict_joints:
+                base_name += '-jphl{}'.format(self.joints_loss_w)  # relative phases loss
+            if self.predict_phase:
+                base_name += '-phl{}'.format(self.phase_loss_w) # relative phases loss
+            if self.predict_orientation:
+                base_name += '-oril{}'.format(self.orientation_loss_w)  # orientation
+            if self.predict_root:
+                base_name += '-rl{}'.format(self.root_loss_w)
 
         base_name += '-{}'.format(self.config.scheduler)
         base_name += '-{}'.format(self.config.optimizer)
@@ -311,14 +318,14 @@ class BaseModel(nn.Module):
             pose_loss = self.mse(pose_hat, pose)
             total_loss = pose_loss
 
-            loss_vals['pose'] = pose_loss.cpu().item()
+            loss_dict['pose'] = pose_loss.cpu().item()
 
             if self.predict_contact:
                 contact, contact_hat = batch.vicon_contact, model_out['contact_hat']
                 contact_loss = self.bce_with_log(contact_hat, contact)
 
                 total_loss += self.contact_loss_w * contact_loss
-                loss_vals['contact'] = contact_loss.cpu().item()
+                loss_dict['contact'] = contact_loss.cpu().item()
 
             if self.predict_orientation:
                 orientation = batch.vicon_ori.reshape(n, f, -1, 3, 3)
@@ -327,7 +334,7 @@ class BaseModel(nn.Module):
                 orientation_loss = self.mse(orientation_hat, orientation)
 
                 total_loss += self.orientation_loss_w * orientation_loss
-                loss_vals['orientation'] = orientation_loss.cpu().item()
+                loss_dict['orientation'] = orientation_loss.cpu().item()
 
             if self.predict_root:
                 # root = batch.root_delta
@@ -335,7 +342,7 @@ class BaseModel(nn.Module):
                 root_loss = self.mse(root_hat, root)
 
                 total_loss += self.root_loss_w * root_loss
-                loss_vals['root'] = root_loss.cpu().item()
+                loss_dict['root'] = root_loss.cpu().item()
 
         elif self.VERSION == 'FK':
 
@@ -370,35 +377,24 @@ class BaseModel(nn.Module):
 
             # Contact loss
             if self.predict_contact:
-                contact = batch.vicon_contact
-                contact_hat = model_out['contact_hat']
-                contact_loss = self.bce_with_log(contact_hat, contact)
+                contact_loss = self.bce_with_log(model_out['contact_hat'], batch.vicon_contact)
                 loss_dict['contact'] = contact_loss
-                total_loss += self.contact_loss_w * contact_loss
 
             # Velocity loss
             if self.predict_velocity:
-                velocity = batch.velocity
-                velocity_hat = model_out['velocity_hat']
-                velocity_loss = self.mse(velocity_hat, velocity)
+                velocity_loss = self.mse(model_out['velocity_hat'], batch.velocity)
                 loss_dict['velocity'] = velocity_loss
-                total_loss += self.velocity_loss_w * velocity_loss
 
             # Relative joint angles (e.g., coordination)
             if self.predict_joints:
-                relative_joints = batch.relative_joints
                 relative_joints_hat = model_out['relative_joints_hat'].reshape(n, f, -1, 3)
-                joint_angle_loss = weighted_euler_angle_loss(relative_joints_hat, relative_joints)
+                joint_angle_loss = weighted_euler_angle_loss(relative_joints_hat, batch.relative_joints)
                 loss_dict['relative_joints_angle'] = joint_angle_loss
-                total_loss += self.joints_loss_w * joint_angle_loss
 
             # Relative phase loss
             if self.predict_phase:
-                relative_phase = batch.relative_phase
-                relative_phase_hat = model_out['relative_phase_hat']
-                phase_loss = circular_loss(relative_phase_hat, relative_phase)
+                phase_loss = circular_loss(model_out['relative_phase_hat'], batch.relative_phase)
                 loss_dict['relative_joints_phase'] = phase_loss
-                total_loss += self.phase_loss_w * phase_loss
 
             if self.predict_root:
                 # TO DO
@@ -421,7 +417,7 @@ class BaseModel(nn.Module):
                 root_loss = root_delta_loss + 0.1 * root_pos_loss
 
                 total_loss += self.root_loss_w * root_loss
-                loss_vals['root'] = root_loss.cpu().item()
+                loss_dict['root'] = root_loss.cpu().item()
 
             if self.predict_orientation: # only for JC
                 orientation = batch.vicon_ori.reshape(n, f, -1, 3, 3)
@@ -430,14 +426,34 @@ class BaseModel(nn.Module):
                 orientation_loss = self.mse(orientation_hat, orientation)
 
                 # total_loss += self.orientation_loss_w * orientation_loss
-                loss_vals['orientation'] = orientation_loss
+                loss_dict['orientation'] = orientation_loss
 
         # Initialise adaptive loss wrapper if not already done
-        if not hasattr(self, 'adaptive_loss'):
-            self.adaptive_loss = AdaptiveLossWrapper(list(loss_dict.keys()))
+        if self.use_adaptive_loss:
+            self.adaptive_loss = AdaptiveLossWrapper(sorted(loss_dict.keys()))
+            total_loss, weighted_losses = self.adaptive_loss(loss_dict)
+        else:
+            manual_weights = {
+                'pose': self.pose_loss_w,
+                'joint_rot': self.joint_rot_loss_w,
+                'noise': 1.0,
+                'contact': self.contact_loss_w,
+                'velocity': self.velocity_loss_w,
+                'relative_joints_angle': self.joints_loss_w,
+                'relative_joints_phase': self.phase_loss_w,
+                'orientation': self.orientation_loss_w,
+                'root': self.root_loss_w,
+            }
 
-        # Compute total loss and per-task weighted losses
-        total_loss, weighted_losses = self.adaptive_loss(loss_dict)
+            total_loss = 0.0
+            weighted_losses = {}
+            for name, loss in loss_dict.items():
+                weight = manual_weights.get(name, 1.0)
+                if weight is None:
+                    weight = 1.0
+                weighted = weight * loss
+                total_loss += weighted
+                weighted_losses[name] = weighted
 
         if self.training:
             total_loss.backward()
@@ -1771,4 +1787,3 @@ class DCTattention(BaseModel):
                 # output['root_hat'] = self.get_root(lstm_out) # Velocity
 
             return output
-

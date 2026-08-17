@@ -1,3 +1,5 @@
+"""Explore discrete-cosine compression of motion sequences in AITViewer."""
+
 import numpy as np
 
 from aitviewer.renderables.spheres import Spheres

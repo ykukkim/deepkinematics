@@ -1,3 +1,5 @@
+"""Load, validate, batch, and move processed motion samples between devices."""
+
 import torch
 import numpy as np
 import scipy.signal as signal

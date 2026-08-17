@@ -1,7 +1,10 @@
+"""PyTorch dataset classes for training, validation, and held-out evaluation."""
+
 import pandas as pd
 from torch.utils.data import Dataset
 
 from DK00_Utils.DK00_UT00_config import CONSTANTS as C
+from DK00_Utils.DK00_UT00_config import filter_by_age
 from DK00_Utils.DK00_UT01_datasetProcess import RealSample
 
 class RealDataset(Dataset):
@@ -9,7 +12,7 @@ class RealDataset(Dataset):
     Dataset class for IMU and bvh data.
     """
 
-    def __init__(self, test_set=None, transform=None, sampling_freq=50, train=True ,version=str):
+    def __init__(self, subjects=None, test_set=None, transform=None, sampling_freq=50, train=True, version=str):
         """
         Initializer.
         :param test_set: (easy, hard, unseen), determines which testset is used
@@ -26,14 +29,22 @@ class RealDataset(Dataset):
 
         self.test_set_unseen = pd.read_csv(C.UNSEEN_MOTION_CSV)
 
-        if self.train:
-            subjects = C.subjects_train
-        elif self.test_set == 'easy':
-            subjects = C.subjects_easy
-        elif self.test_set == 'hard':
-            subjects = C.subjects_hard
-        elif self.test_set == 'unseen':
-            subjects = C.subjects_train
+        if subjects is None:
+            # Legacy behaviour
+            if self.train:
+                subjects = C.subjects_train
+            elif self.test_set == 'easy':
+                subjects = C.subjects_easy
+            elif self.test_set == 'hard':
+                subjects = C.subjects_hard
+            elif self.test_set == 'unseen':
+                subjects = C.subjects_train
+        else:
+            # CV mode → apply filtering if needed
+            if not self.train and self.test_set in ['easy', 'hard']:
+                subjects = filter_by_age(subjects, self.test_set)
+            elif self.test_set == 'unseen':
+                pass
 
         # Trials to train and test on
         npz_files = []
@@ -53,6 +64,7 @@ class RealDataset(Dataset):
         self.npz_files = npz_files
         self.transform = transform
         self.counter = 0
+
         # Dictionary to track how many times each item is accessed
         self.item_counter = {i: 0 for i in range(len(self.npz_files))}
     def __len__(self):

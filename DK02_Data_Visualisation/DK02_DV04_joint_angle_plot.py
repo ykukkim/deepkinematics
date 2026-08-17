@@ -1,3 +1,5 @@
+"""Plot selected ground-truth and reconstructed joint-angle time series."""
+
 import torch
 import numpy as np
 import matplotlib

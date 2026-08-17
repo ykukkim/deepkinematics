@@ -1,3 +1,5 @@
+"""Visualise IMU-to-OMC segment-orientation errors over a recording."""
+
 import torch
 import numpy as np
 import matplotlib

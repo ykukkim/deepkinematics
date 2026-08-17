@@ -1,3 +1,5 @@
+"""Geometry adapters that prepare IMU, Vicon, and BVH data for AITViewer."""
+
 import numpy as np
 import torch
 

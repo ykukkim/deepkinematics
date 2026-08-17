@@ -1,0 +1,43 @@
+# Python and local tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage*
+.idea/
+.claude/
+.DS_Store
+
+# Environments, logs, and experiment trackers
+.env
+.venv/
+env/
+venv/
+logs/
+wandb/
+
+# Model and dataset artefacts (source code and small configs remain tracked)
+*.pth
+*.pt
+*.ckpt
+*.npz
+*.npy
+*.mat
+
+# Generated analysis and manuscript outputs
+DK04_Gait_Parameter/data/
+DK04_Gait_Parameter/calibration_out*/
+DK04_Gait_Parameter/joint_rom_out/
+DK05_Figures/plots/
+*.csv
+*.xlsx
+*.pdf
+*.png
+*.tif
+*.tiff
+
+# Build and packaging outputs
+build/
+dist/
+*.egg-info/
