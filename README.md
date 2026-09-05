@@ -6,6 +6,20 @@ code covers motion-capture conversion, PyTorch training and inference,
 spatiotemporal gait analysis, joint-kinematics agreement, and publication
 figures.
 
+## Associated research
+
+This repository accompanies the following TechRxiv preprint:
+
+> Kim, Y. K., Häfliger, A., Taylor, W. R., Tan, K. Z., Gwerder, M.,
+> Frautschi, A., Singh, N. B., & Kaufmann, M. (2025). *Deep Kinematics:
+> Full Body Gait Reconstruction from Six IMUs with Kinematics Based
+> Regularisation*. TechRxiv.
+> https://doi.org/10.36227/techrxiv.176591555.56061504/v1
+
+Please use the repository's **Cite this repository** menu, which reads
+[`CITATION.cff`](CITATION.cff), when citing the code. The maintained analyses
+include later optical-validation work beyond the initial preprint.
+
 The repository also contains archived scripts and generated manuscript results.
 Those are retained as provenance and are not part of the maintained pipeline.
 
@@ -190,3 +204,10 @@ test cohort and therefore changes the reported results.
 - Keep generated model `config.json`, checkpoint, and archived source ZIP together.
   Existing manuscript checkpoints were produced with PyTorch 2.x and should be
   validated with the self-tests before any full result regeneration.
+
+## Licence
+
+No software licence has yet been declared for this repository. The source is
+publicly visible, but reuse and redistribution terms remain unspecified. Before
+adding a project-wide licence, confirm that it is compatible with the bundled
+third-party material, including the separately licensed SPM1D MATLAB subtree.

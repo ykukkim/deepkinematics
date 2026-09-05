@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite both the repository and the associated
+  TechRxiv preprint.
+title: DeepKinematics
+type: software
+authors:
+  - family-names: Kim
+    given-names: Yong Kuk
+    orcid: https://orcid.org/0000-0002-8975-5762
+repository-code: https://github.com/ykukkim/deepkinematics
+preferred-citation:
+  type: article
+  title: >-
+    Deep Kinematics: Full Body Gait Reconstruction from Six IMUs with
+    Kinematics Based Regularisation
+  authors:
+    - family-names: Kim
+      given-names: Yong K.
+      orcid: https://orcid.org/0000-0002-8975-5762
+    - family-names: Häfliger
+      given-names: Alexander
+    - family-names: Taylor
+      given-names: William R.
+    - family-names: Tan
+      given-names: Kai Z.
+    - family-names: Gwerder
+      given-names: Michelle
+    - family-names: Frautschi
+      given-names: Angela
+    - family-names: Singh
+      given-names: Navrag B.
+    - family-names: Kaufmann
+      given-names: Manuel
+  journal: TechRxiv
+  year: 2025
+  month: 12
+  doi: 10.36227/techrxiv.176591555.56061504/v1
+  url: https://doi.org/10.36227/techrxiv.176591555.56061504/v1
